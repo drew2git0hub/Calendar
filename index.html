@@ -1,1 +1,648 @@
 <!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Calendar</title>
+    <style>
+      /* 공통 스타일 */
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        padding: 20px;
+        background-color: #f0f0f0;
+      }
+      button {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      
+      /* 캘린더 스타일 */
+      .calendar {
+        max-width: 400px;
+        margin: 0 auto;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 5px;
+      }
+      .day {
+        width: 100%;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .other-month {
+        color: #bbb;
+      }
+      .today {
+        background-color: #007bff;
+        color: #fff;
+        border: 1px solid #0056b3;
+      }
+      
+      /* 메모(일정) 확인 화면 스타일 */
+      #memo-view {
+        max-width: 400px;
+        margin: 20px auto;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        display: none;
+      }
+      #memo-view h3 {
+        margin-top: 0;
+      }
+      #memo-list {
+        list-style: none;
+        padding: 0;
+        margin: 10px 0;
+        min-height: 60px;
+      }
+      /* 각 메모 항목 스타일 */
+      #memo-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px;
+        margin-bottom: 5px;
+        border-radius: 5px;
+      }
+      .check-btn,
+      .edit-btn,
+      .delete-btn,
+      .memo-text {
+        cursor: pointer;
+      }
+      .check-btn {
+        margin-right: 5px;
+        min-width: 20px;
+        text-align: center;
+      }
+      .edit-btn,
+      .delete-btn {
+        margin-left: 5px;
+      }
+      
+      /* 메모 편집 및 작성 모달 */
+      #memo-edit-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+      #memo-edit-modal .modal-content {
+        background: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        min-width: 300px;
+      }
+      #memo-edit-modal .modal-header {
+        display: flex;
+        align-items: center;
+      }
+      #memo-edit-modal .modal-header #repeat-input {
+        margin-left: 5px;
+      }
+      #memo-edit-modal .modal-header #color-options {
+        margin-left: 10px;
+      }
+      /* 선택된 색상 옵션에 파란 테두리 */
+      .color-option.selected-color {
+        border: 2px solid blue !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 캘린더 화면 -->
+    <div class="calendar" id="calendar-view">
+      <div class="calendar-header">
+        <button id="prev-month">&lt;</button>
+        <h2 id="month-year">월/년</h2>
+        <button id="next-month">&gt;</button>
+      </div>
+      <div class="calendar-grid" id="calendar-grid">
+        <!-- 요일 헤더 -->
+        <div class="day">일</div>
+        <div class="day">월</div>
+        <div class="day">화</div>
+        <div class="day">수</div>
+        <div class="day">목</div>
+        <div class="day">금</div>
+        <div class="day">토</div>
+        <!-- 날짜 셀은 JavaScript로 동적으로 생성 -->
+      </div>
+    </div>
+
+    <!-- 메모(일정) 확인 화면 -->
+    <div id="memo-view">
+      <button id="back-to-calendar">&lt; Back to calendar</button>
+      <h3 id="memo-date">선택일자</h3>
+      <ul id="memo-list">
+        <!-- 각 메모 항목이 동적으로 추가됨 -->
+      </ul>
+      <button id="add-memo">+</button>
+    </div>
+
+    <!-- 메모 편집 및 작성 모달 -->
+    <div id="memo-edit-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span id="repeat-setting" title="반복 설정" style="cursor: pointer;">~</span>
+          <input
+            type="number"
+            id="repeat-input"
+            placeholder="repeat interval"
+            style="width: 60px; display: none;"
+          />
+          <span
+            id="color-picker"
+            title="Choose memo color"
+            style="cursor: pointer; margin-left: 10px;"
+            >🎨</span
+          >
+          <div id="color-options" style="display: none;">
+            <span
+              class="color-option"
+              data-color="#ffffff"
+              style="background-color: #ffffff; display: inline-block; width: 20px; height: 20px; border: 1px solid #ccc; border-radius: 50%; margin: 2px; cursor: pointer;"
+            ></span>
+            <span
+              class="color-option"
+              data-color="#ffcccc"
+              style="background-color: #ffcccc; display: inline-block; width: 20px; height: 20px; border: 1px solid #ccc; border-radius: 50%; margin: 2px; cursor: pointer;"
+            ></span>
+            <span
+              class="color-option"
+              data-color="#ccffcc"
+              style="background-color: #ccffcc; display: inline-block; width: 20px; height: 20px; border: 1px solid #ccc; border-radius: 50%; margin: 2px; cursor: pointer;"
+            ></span>
+            <span
+              class="color-option"
+              data-color="#ccccff"
+              style="background-color: #ccccff; display: inline-block; width: 20px; height: 20px; border: 1px solid #ccc; border-radius: 50%; margin: 2px; cursor: pointer;"
+            ></span>
+            <span
+              class="color-option"
+              data-color="#ffffcc"
+              style="background-color: #ffffcc; display: inline-block; width: 20px; height: 20px; border: 1px solid #ccc; border-radius: 50%; margin: 2px; cursor: pointer;"
+            ></span>
+          </div>
+        </div>
+        <div class="modal-body" style="margin-top: 10px;">
+          <textarea
+            id="memo-edit-text"
+            style="width: 100%; height: 80px;"
+          ></textarea>
+        </div>
+        <div
+          class="modal-footer"
+          style="text-align: right; margin-top: 10px;"
+        >
+          <button id="memo-edit-save">Save</button>
+          <button id="memo-edit-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /*******************************************************
+       * 전역 변수 및 데이터 구조
+       * memos 객체: { "YYYY-MM-DD": [ { id, text, completed, repeatInterval, color } ] }
+       *******************************************************/
+      let memos = {};
+      let memoIdCounter = 0;
+      let currentEditingMemo = null; // 편집 중인 메모 (null이면 새 메모)
+      let currentEditingDate = ""; // 현재 메모가 속한 날짜 ("YYYY-MM-DD")
+      
+      let today = new Date();
+      let currentMonth = today.getMonth();
+      let currentYear = today.getFullYear();
+
+      /***********************
+       * DOM 요소 참조
+       ***********************/
+      const monthYearEl = document.getElementById("month-year");
+      const calendarGrid = document.getElementById("calendar-grid");
+      const prevBtn = document.getElementById("prev-month");
+      const nextBtn = document.getElementById("next-month");
+      const calendarView = document.getElementById("calendar-view");
+
+      const memoView = document.getElementById("memo-view");
+      const memoDateEl = document.getElementById("memo-date");
+      const memoListEl = document.getElementById("memo-list");
+      const backToCalendarBtn = document.getElementById("back-to-calendar");
+      const addMemoBtn = document.getElementById("add-memo");
+
+      const memoEditModal = document.getElementById("memo-edit-modal");
+      const memoEditText = document.getElementById("memo-edit-text");
+      const memoEditSave = document.getElementById("memo-edit-save");
+      const memoEditCancel = document.getElementById("memo-edit-cancel");
+      const repeatSetting = document.getElementById("repeat-setting");
+      const repeatInput = document.getElementById("repeat-input");
+      const colorPicker = document.getElementById("color-picker");
+      const colorOptions = document.getElementById("color-options");
+
+      /***********************
+       * 날짜 문자열에 일수 더하기 (YYYY-MM-DD 형식)
+       ***********************/
+      function addDays(dateStr, days) {
+        const parts = dateStr.split("-");
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const date = new Date(year, month, day);
+        date.setDate(date.getDate() + days);
+        const newYear = date.getFullYear();
+        const newMonth = String(date.getMonth() + 1).padStart(2, "0");
+        const newDay = String(date.getDate()).padStart(2, "0");
+        return `${newYear}-${newMonth}-${newDay}`;
+      }
+
+      /***********************
+       * 캘린더 렌더링 함수
+       * 각 날짜 셀에는 data-date 속성("YYYY-MM-DD")이 설정됨
+       ***********************/
+      function renderCalendar(month, year) {
+        // 기존 날짜 셀(.date 클래스) 제거 (요일 헤더 제외)
+        calendarGrid.querySelectorAll(".date").forEach((el) => el.remove());
+        const now = new Date();
+        // 해당 달 1일의 요일 (0: 일요일, …)
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+        let cellCount = 0;
+
+        // 전달 날짜 채우기
+        for (let i = firstDay - 1; i >= 0; i--) {
+          const dayNum = daysInPrevMonth - i;
+          const cellDiv = document.createElement("div");
+          cellDiv.classList.add("day", "other-month", "date");
+          const prevMonth = month === 0 ? 11 : month - 1;
+          const prevYear = month === 0 ? year - 1 : year;
+          cellDiv.textContent = dayNum;
+          cellDiv.setAttribute(
+            "data-date",
+            `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`
+          );
+          calendarGrid.appendChild(cellDiv);
+          cellCount++;
+        }
+
+        // 이달 날짜 채우기
+        for (let i = 1; i <= daysInMonth; i++) {
+          const cellDiv = document.createElement("div");
+          cellDiv.classList.add("day", "date");
+          if (year === now.getFullYear() && month === now.getMonth() && i === now.getDate()) {
+            cellDiv.classList.add("today");
+          }
+          cellDiv.textContent = i;
+          cellDiv.setAttribute(
+            "data-date",
+            `${year}-${String(month + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`
+          );
+          calendarGrid.appendChild(cellDiv);
+          cellCount++;
+        }
+
+        // 다음 달 날짜 채우기
+        let nextDay = 1;
+        while (cellCount % 7 !== 0) {
+          const cellDiv = document.createElement("div");
+          cellDiv.classList.add("day", "other-month", "date");
+          const nextMonth = month === 11 ? 0 : month + 1;
+          const nextYear = month === 11 ? year + 1 : year;
+          cellDiv.textContent = nextDay;
+          cellDiv.setAttribute(
+            "data-date",
+            `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`
+          );
+          calendarGrid.appendChild(cellDiv);
+          nextDay++;
+          cellCount++;
+        }
+        monthYearEl.textContent = `${year}년 ${month + 1}월`;
+      }
+
+      /***********************
+       * 이전/다음 달 버튼 이벤트 처리
+       ***********************/
+      prevBtn.addEventListener("click", () => {
+        currentMonth--;
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
+        }
+        renderCalendar(currentMonth, currentYear);
+      });
+
+      nextBtn.addEventListener("click", () => {
+        currentMonth++;
+        if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        renderCalendar(currentMonth, currentYear);
+      });
+
+      /***********************
+       * 캘린더 날짜 셀 클릭 시 메모(일정) 확인 화면 오픈
+       ***********************/
+      calendarGrid.addEventListener("click", (e) => {
+        if (e.target.classList.contains("date")) {
+          const date = e.target.getAttribute("data-date");
+          openMemoView(date);
+        }
+      });
+
+      function openMemoView(date) {
+        currentEditingDate = date;
+        calendarView.style.display = "none";
+        memoView.style.display = "block";
+        memoDateEl.textContent = date;
+        updateMemoList(date);
+      }
+
+      /***********************
+       * 메모 리스트 업데이트 (해당 날짜의 메모들)
+       ***********************/
+      function updateMemoList(date) {
+        memoListEl.innerHTML = "";
+        if (memos[date] && memos[date].length > 0) {
+          memos[date].forEach((memo) => {
+            const li = document.createElement("li");
+            li.setAttribute("data-id", memo.id);
+            li.style.backgroundColor = memo.color;
+            // 왼쪽 체크 버튼 (□ 또는 √)
+            const checkSpan = document.createElement("span");
+            checkSpan.classList.add("check-btn");
+            checkSpan.textContent = memo.completed ? "√" : "□";
+            // 가운데 메모 텍스트
+            const textSpan = document.createElement("span");
+            textSpan.classList.add("memo-text");
+            textSpan.textContent = memo.text;
+            // 오른쪽 수정 아이콘
+            const editSpan = document.createElement("span");
+            editSpan.classList.add("edit-btn");
+            editSpan.textContent = "✏️";
+            // 오른쪽 삭제 아이콘
+            const deleteSpan = document.createElement("span");
+            deleteSpan.classList.add("delete-btn");
+            deleteSpan.textContent = "🗑️";
+
+            li.appendChild(checkSpan);
+            li.appendChild(textSpan);
+            li.appendChild(editSpan);
+            li.appendChild(deleteSpan);
+            memoListEl.appendChild(li);
+          });
+        } else {
+          const li = document.createElement("li");
+          li.textContent = "메모가 없습니다";
+          memoListEl.appendChild(li);
+        }
+      }
+
+      /***********************
+       * 메모 항목 클릭 이벤트 처리
+       * - 왼쪽 체크 버튼: 토글 후, 만약 반복 주기가 있다면 자동 생성
+       * - 수정 아이콘 또는 텍스트: 편집 모달 오픈 (수정)
+       * - 삭제 아이콘: 해당 메모 삭제
+       ***********************/
+      memoListEl.addEventListener("click", (e) => {
+        const target = e.target;
+        const li = target.closest("li");
+        if (!li || !li.dataset.id) return;
+        const memoId = parseInt(li.dataset.id);
+        let memoArray = memos[currentEditingDate] || [];
+        const memoIndex = memoArray.findIndex((m) => m.id === memoId);
+        if (memoIndex === -1) return;
+        let memo = memoArray[memoIndex];
+
+        if (target.classList.contains("check-btn")) {
+          // 체크 토글
+          memo.completed = !memo.completed;
+          target.textContent = memo.completed ? "√" : "□";
+          // 반복 주기가 설정되어 있고, 체크되어 있으면
+          if (memo.repeatInterval > 0 && memo.completed) {
+            // 현재 날짜 + 반복일수
+            const newDate = addDays(currentEditingDate, memo.repeatInterval);
+            const newMemo = {
+              id: memoIdCounter++,
+              text: memo.text,
+              completed: false,
+              repeatInterval: memo.repeatInterval,
+              color: memo.color,
+            };
+            if (!memos[newDate]) {
+              memos[newDate] = [];
+            }
+            memos[newDate].push(newMemo);
+            // 화면은 그대로 현재 날짜의 메모 확인 화면 유지 (자동 생성된 메모는 다른 날짜에 저장)
+          }
+        } else if (
+          target.classList.contains("edit-btn") ||
+          target.classList.contains("memo-text")
+        ) {
+          // 편집 모달 오픈 (기존 메모 수정)
+          openMemoEditor(memo);
+        } else if (target.classList.contains("delete-btn")) {
+          // 삭제
+          if (confirm("Really do you want to delete this memo?")) {
+            memoArray.splice(memoIndex, 1);
+            updateMemoList(currentEditingDate);
+          }
+        }
+      });
+
+      /***********************
+       * 새 메모 추가 버튼: 편집 모달 오픈 (새 메모 작성)
+       ***********************/
+      addMemoBtn.addEventListener("click", () => {
+        openMemoEditor(null);
+      });
+
+      /***********************
+       * 메모 편집/작성 모달 오픈
+       ***********************/
+      function openMemoEditor(memo) {
+        currentEditingMemo = memo;
+        if (memo) {
+          memoEditText.value = memo.text;
+          repeatInput.value = memo.repeatInterval || "";
+          colorPicker.dataset.selectedColor = memo.color;
+        } else {
+          memoEditText.value = "";
+          repeatInput.value = "";
+          colorPicker.dataset.selectedColor = "#ffffff";
+        }
+        repeatInput.style.display = "none";
+        colorOptions.style.display = "none";
+        // 초기 색상 옵션 선택: 기본적으로 첫 번째 옵션에 파란 테두리
+        [...colorOptions.children].forEach((child, index) => {
+          if (index === 0) {
+            child.classList.add("selected-color");
+          } else {
+            child.classList.remove("selected-color");
+          }
+        });
+        memoEditModal.style.display = "flex";
+      }
+
+      /***********************
+       * 모달 저장/취소 버튼 처리
+       ***********************/
+      memoEditSave.addEventListener("click", () => {
+        let text = memoEditText.value.trim();
+        if (text === "") {
+          alert("Write the summurys.");
+          return;
+        }
+        let repeatVal = parseInt(repeatInput.value);
+        if (isNaN(repeatVal)) {
+          repeatVal = 0;
+        }
+        let selectedColor = colorPicker.dataset.selectedColor || "#ffffff";
+
+        if (currentEditingMemo) {
+          // 기존 메모 수정
+          currentEditingMemo.text = text;
+          currentEditingMemo.repeatInterval = repeatVal;
+          currentEditingMemo.color = selectedColor;
+        } else {
+          // 새 메모 추가
+          const newMemo = {
+            id: memoIdCounter++,
+            text: text,
+            completed: false,
+            repeatInterval: repeatVal,
+            color: selectedColor,
+          };
+          if (!memos[currentEditingDate]) {
+            memos[currentEditingDate] = [];
+          }
+          memos[currentEditingDate].push(newMemo);
+        }
+        closeMemoEditor();
+        updateMemoList(currentEditingDate);
+      });
+
+      memoEditCancel.addEventListener("click", () => {
+        closeMemoEditor();
+      });
+
+      function closeMemoEditor() {
+        memoEditModal.style.display = "none";
+      }
+
+      /***********************
+       * 모달 상단의 반복 설정(~) 클릭 시 토글
+       ***********************/
+      repeatSetting.addEventListener("click", () => {
+        if (repeatInput.style.display === "none") {
+          repeatInput.style.display = "inline-block";
+          repeatInput.focus();
+        } else {
+          repeatInput.style.display = "none";
+        }
+      });
+
+      /***********************
+       * 팔레트 아이콘 클릭 시 색상 옵션 토글 및 선택 시 파란 테두리 표시
+       ***********************/
+      colorPicker.addEventListener("click", () => {
+        colorOptions.style.display = colorOptions.style.display === "none" ? "block" : "none";
+      });
+
+      colorOptions.addEventListener("click", (e) => {
+        if (e.target.classList.contains("color-option")) {
+          // 모든 옵션에서 선택 표시 제거
+          [...colorOptions.children].forEach((child) => child.classList.remove("selected-color"));
+          // 클릭한 옵션에 선택 표시
+          e.target.classList.add("selected-color");
+          let selected = e.target.getAttribute("data-color");
+          colorPicker.dataset.selectedColor = selected;
+          colorOptions.style.display = "none";
+        }
+      });
+
+      /***********************
+       * 인라인 년도/월 입력 (네이버 캘린더 스타일)
+       ***********************/
+      monthYearEl.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+        input.style.fontSize = "1.2em";
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            applyDateInput(input);
+          }
+        });
+        input.addEventListener("blur", () => {
+          applyDateInput(input);
+        });
+        monthYearEl.textContent = "";
+        monthYearEl.appendChild(input);
+        input.focus();
+      });
+
+      function applyDateInput(input) {
+        const parts = input.value.split(/[-/년월\s]+/).filter((x) => x);
+        if (parts.length >= 2) {
+          const newYear = parseInt(parts[0]);
+          const newMonth = parseInt(parts[1]) - 1;
+          if (!isNaN(newYear) && !isNaN(newMonth) && newMonth >= 0 && newMonth < 12) {
+            currentYear = newYear;
+            currentMonth = newMonth;
+            renderCalendar(currentMonth, currentYear);
+          }
+        }
+        monthYearEl.textContent = `${currentYear}년 ${currentMonth + 1}월`;
+      }
+
+      /***********************
+       * 뒤로가기(캘린더) 버튼 처리
+       ***********************/
+      backToCalendarBtn.addEventListener("click", () => {
+        memoView.style.display = "none";
+        calendarView.style.display = "block";
+      });
+
+      /***********************
+       * 초기 캘린더 렌더링
+       ***********************/
+      renderCalendar(currentMonth, currentYear);
+    </script>
+  </body>
+</html>
